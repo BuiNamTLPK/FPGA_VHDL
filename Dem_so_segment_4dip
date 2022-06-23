@@ -1,0 +1,272 @@
+-- date: 17/04/2022
+-- designer: Bui Phuong Nam
+-- descrip: dung de hien thi led 7 doan co 4 con, voi 4 nut an dung de ghi "AbCd", "FEdC", reset, 1000,
+-- no tu dem tu 0 -> 9999 roi tu chay lai tu 0.
+
+
+--file chinh de chay design--
+Library IEEE;
+
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_arith.all;
+use iEEE.std_logic_unsigned.all;
+
+Entity SEGMENT is
+port( 
+	clk: in std_logic;
+	beep: out std_logic;
+	button: in std_logic_vector(7 downto 0);
+	segm: out std_logic_vector(6 downto 0); -- led segment seven action low level.
+	dip: out std_logic_vector(7 downto 0); -- dip low action
+	ckey: in std_logic_vector(1 downto 0)
+);
+end SEGMENT;
+
+---------------------------------------
+-------------architecture----------------
+---------------------------------------
+
+architecture Behavioral of SEGMENT is
+
+signal counter  : std_logic_vector(15 downto 0) ; -- hien thi 0 den 9999, hien thi mưc dau la 1234
+signal clk1s: std_logic; 					-- xung o'clock 1s
+signal clkms: std_logic_vector(1 downto 0);
+
+signal demx: std_logic_vector(3 downto 0);
+signal dipv : std_logic_vector(3 downto 0) := "1111";
+signal dipc : std_logic_vector(3 downto 0) := "1111";
+
+signal clkbeep: std_logic;
+
+--//////////////////////////////////
+component SHOW_LED is
+port(
+	clkms : in std_logic_vector(1 downto 0);
+	demx: in std_logic_vector(3 downto 0);
+	segm: out std_logic_vector(6 downto 0)
+	);
+	end component;
+
+component DEM_DEC is
+port( 
+	clk: in std_logic;
+	button: in std_logic_vector(7 downto 0);
+	dipv: out std_logic_vector( 3 downto 0);
+	beep: out std_logic;
+	demx: out std_logic_vector(3 downto 0)
+	);
+	end component;
+--//////////////////////////////////
+
+	begin
+	
+	
+	hien_thi: SHOW_LED port map ( clkms => clkms, demx => demx,segm =>segm);
+	
+	dem_so: DEM_DEC port map ( clk => clk,button => button, dipv => dipv, beep => beep, demx => demx);
+	
+	---------------------------------
+			
+		
+	
+dip(3 downto 0) <= dipv;
+dip( 7 downto 4) <= dipc;
+
+	end behavioral;
+  
+ --------------------------------------------
+ --------- component quet de hien thi led tren segment 4 dip 
+ -------- mo ta: Send to segment with four 7 bit work light.
+ --------------------------------------------
+ Library IEEE;
+
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_arith.all;
+use iEEE.std_logic_unsigned.all;
+
+Entity SHOW_LED is
+port( 
+	clkms : in std_logic_vector(1 downto 0);
+	demx: in std_logic_vector(3 downto 0);
+	segm: out std_logic_vector(6 downto 0)
+	);
+end SHOW_LED;
+
+architecture Behavioral of SHOW_LED is
+
+begin
+	process
+		begin
+			case demx is
+				when x"0" => segm <= "1000000";
+				when x"1" => segm <= "1111001";
+				when x"2" => segm <= "0100100";
+				when x"3" => segm <= "0110000";
+				when x"4" => segm <= "0011001";
+				when x"5" => segm <= "0010010";
+				when x"6" => segm <= "0000010";
+				when x"7" => segm <= "1111000";
+				when x"8" => segm <= "0000000";
+				when x"9" => segm <= "0010000";
+				when x"A" => segm <= "0001000";
+				when x"B" => segm <= "0000011";
+				when x"C" => segm <= "1000110";
+				when x"D" => segm <= "0100001";
+				when x"E" => segm <= "0000110";
+				when x"F" => segm <= "0001110";
+				when others=>segm <= "1000000";
+				end case;
+		end process;
+	
+	
+end Behavioral;
+
+
+---------------------------------------------
+--------------  component dem_so
+--------------  mo ta: if constant unit counter cut pulse from 50 MH down 1 Hz (by 1s)
+--------------  and 4 button constant s5, s6, s7, s8 on board with s7 is reset, s8 is count from 1000,...
+---------------------------------------------
+Library IEEE;
+
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_arith.all;
+use iEEE.std_logic_unsigned.all;
+
+Entity DEM_DEC is
+port( 
+	clk: in std_logic;
+	button: in std_logic_vector(7 downto 0);
+	dipv: out std_logic_vector( 3 downto 0);
+	beep: out std_logic;
+	demx: out std_logic_vector(3 downto 0)
+	);
+	end DEM_DEC;
+architecture Behavioral of DEM_DEC is
+
+signal ins : std_logic_vector(15 downto 0) := x"0180";
+signal dem: std_logic_vector( 19 downto 0) := x"00000";
+signal clkbeep: std_logic;
+signal clkms: std_logic_vector(1 downto 0);
+signal clk1s: std_logic;
+	begin
+	
+		process( clk)
+			variable i : integer := 0;
+			begin
+				if( clk = '1' and clk'event) then
+					if dem < x"7A120" then
+							dem <= dem + 1;
+						elsif( dem = x"7A120" ) then -- dem den 0,01 s
+							dem <= ( others =>'0');
+							i := i +1;
+						end if;
+					end if;
+				
+				if( i = 99) then
+						clk1s <= '1';
+					elsif( i = 100) then
+						i:= 0;
+					else 
+						clk1s <= '0';
+						end if;
+			end process;
+			
+clkms <= dem(17 downto 16);
+clkbeep <=  dem(13);
+		process(clk, clk1s)
+			begin 
+			if( rising_edge(clk)) then
+				case button is
+					when "11101111" =>
+						ins( 15 downto 0) <= x"ABCD";
+					when "11011111" =>
+						ins( 15 downto 0) <= x"FEDC";
+					when "10111111" =>
+						ins( 15 downto 0) <= x"0000";
+					when "01111111" =>
+						ins( 15 downto 0) <= x"1000";
+					when "11110111" =>
+						beep <= clkbeep;
+					when others =>
+						if( clk1s = '1' and clk1s'event) then
+							if( ins( 3 downto 0) < "1001" ) then
+								ins(3 downto 0) <= ins(3 downto 0) +1;
+								elsif( ins( 3 downto 0) = "1001" and ins( 7 downto 4) < "1001") then 
+					-- so hien thi < 9 nhay qua hang tiep theo
+									ins(3 downto 0) <= "0000";
+									ins(7 downto 4) <= ins(7 downto 4) +1;
+								elsif( ins( 7 downto 4) = "1001" and ins( 11 downto 8) < "1001"  ) then
+									ins(7 downto 0) <= "00000000";
+									ins(11 downto 8) <= ins(11 downto 8) +1;
+								elsif( ins( 11 downto 8) = "1001" and ins( 15 downto 12) < "1001" ) then
+									ins(11 downto 0) <= x"000";
+									ins(15 downto 12) <= ins(15 downto 12) +1;
+								else ins(15 downto 12) <= "0000";
+								end if;
+							end if;
+					end case;
+				end if;
+			end process;
+	
+	process( clkms)
+			begin
+				case clkms is
+					when "00" => dipv <= "1110";
+						demx <= ins(3 downto 0);
+					when "01" => dipv <= "1101";
+						demx <= ins( 7 downto 4);
+					when "10" => dipv <= "1011";
+						demx <= ins( 11 downto 8);
+					when others => dipv <= "0111";
+						demx <= ins( 15 downto 12);
+				end case; 
+		end process;
+
+	end behavioral;
+  
+  --------------------------------------
+  ------ file gan_chan
+  --------------------- mission: anh xa tin hieu duoc viet o tren den cac port tren mach
+  
+# PlanAhead Generated physical constraints 
+
+NET "clk" LOC = P55;
+NET "segm[0]" LOC = P119;
+NET "segm[1]" LOC = P116;
+NET "segm[2]" LOC = P118;
+NET "segm[3]" LOC = P124;
+NET "segm[4]" LOC = P121;
+NET "segm[5]" LOC = P117;
+NET "segm[6]" LOC = P115;
+CONFIG PROHIBIT = P143;
+
+
+NET "dip[0]" LOC = P100;
+NET "dip[1]" LOC = P99;
+net "dip[2]" LOC = P102;
+net "dip[3]" LOC = P101;
+
+net "dip[4]" LOC = P9;
+net "dip[5]" LOC = P10;
+net "dip[6]" LOC = P11;
+net "dip[7]" LOC = P12;
+
+#Dung cho cac nut bam
+NET "button[0]" LOC = P56;
+NET "button[1]" LOC = P57;
+NEt "button[2]" LOC = P58;
+net "button[3]" LOC = P59;
+ 
+net "button[4]" LOC = P61;
+net "button[5]" LOC = P62;
+net "button[6]" LOC = P66;
+net "button[7]" LOC = P67;
+
+# Dung coi
+NET "beep" 		 LOC = P14;
+
+# dung ckey, c?n g?t switch
+net "ckey(0)" loC = P80;
+net "ckey(1)" loc = P79;
+

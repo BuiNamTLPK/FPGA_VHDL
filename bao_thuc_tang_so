@@ -1,0 +1,559 @@
+-- date: 17/04/2022 
+-- designer : Bui Phuong Nam
+-- descrip: Dong ho hen phut voi thoi gian hen toi da la 59 phut. va co mot bo do thoi gian dem tu 0h00p00s den 23h59p59s
+-- khi bo dem dem den bang thoi gian hen o segment 1 va 2 thi buzz se keu dung 1p khi bo dem dem sang phut tiep theo.
+-- DOng thoi duoc gan voi LCD16x2 hien thi ten " Bui Phuong Nam " - dong tren, "Bui Ngoc Diep lt " - dong duoi
+
+--------------------------------------------------------
+------- file main ----------------------------
+---------------
+--------------
+-----------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity baothuc_tangso is
+	port( 
+		clk: in std_logic;
+		button: in std_logic_vector(1 downto 0);
+		beep: out std_logic;
+		dip: out std_logic_vector( 7 downto 0);
+		lcd_e: out std_logic;
+		lcd_rs: out  std_logic;
+		lcd_rw: out std_logic;
+		data: out std_logic_vector(7 downto 0);
+		segment: out std_logic_vector( 6 downto 0)
+	);
+end baothuc_tangso;
+
+architecture Behavioral of baothuc_tangso is
+---//////////////////////////////////////////
+component xu_li_so is
+	port(
+		clk: in std_logic;
+		clk01s : out std_logic;
+		beep: out std_logic;
+		dip: out std_logic_vector( 7 downto 0);
+		dembt: in std_logic_vector(7 downto 0);
+		demx: out std_logic_vector(3 downto 0)
+	);
+end component;
+
+component nut_bam is
+	port (
+			clk01s: in std_logic;
+			button: in std_logic_vector( 1 downto 0);
+			dembt: out std_logic_vector(7 downto 0)
+		);
+end component;
+
+component lcd_modul is
+	port(
+			clk:in  std_logic;
+			lcd_e: out std_logic;
+			lcd_rs: out  std_logic;
+			lcd_rw: out std_logic;
+			--dem_so: out std_logic_vector(1 downto 0);
+			data: out std_logic_vector(7 downto 0);
+			line1: in std_logic_vector(127 downto 0);
+			line2: in std_logic_vector(127 downto 0)
+		);
+	end component;
+
+component show_led is
+	port( 
+		demx: in std_logic_vector(3 downto 0);
+		segm: out std_logic_vector(6 downto 0)
+		);
+
+end component;
+---------------------------------------------------
+
+signal clk10hz: std_logic;
+signal dem: std_logic_vector(3 downto 0);
+signal baothuc: std_logic_vector( 7 downto 0) := "00000000";
+
+signal top_line : std_logic_vector(127 downto 0) 	 := x"427569205068756F6E67204E616D2120";
+signal bottom_line : std_logic_vector(127 downto 0) := x"427569204E676F632044696570204E74";
+
+--------------------------------------------------
+
+begin
+	hienthi: show_led port map( demx => dem, segm => segment);
+	
+	bam: nut_bam port map ( clk01s => clk10hz, button => button, dembt => baothuc);
+	
+	xuli: xu_li_so 
+		port map( clk => clk, clk01s => clk10hz,
+						beep => beep,
+						dip => dip,
+						dembt => baothuc,
+						demx => dem
+					);
+	lcd_show:	lcd_modul port map (
+			clk =>clk,
+			lcd_e => lcd_e,
+			lcd_rs =>lcd_rs,
+			lcd_rw=> lcd_rw,
+			data => data,
+			line1 => top_line,
+			line2 => bottom_line
+		);
+----------------
+	
+end Behavioral;
+
+
+
+--------------------------------------------------------
+------- file hien thi led----------------------------
+--------------- cho phep dua 4 bit nhi phan va chuyen doi thanh ma 7 bit cua ma led 7 doan
+-------------- 
+-----------------------------------------------------
+Library IEEE;
+
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_arith.all;
+use iEEE.std_logic_unsigned.all;
+
+Entity show_led is
+port( 
+	demx: in std_logic_vector(3 downto 0);
+	segm: out std_logic_vector(6 downto 0)
+	);
+end show_led;
+
+architecture Behavioral of show_led is
+
+begin
+	process
+		begin
+			case demx is
+				when x"0" => segm <= "1000000";
+				when x"1" => segm <= "1111001";
+				when x"2" => segm <= "0100100";
+				when x"3" => segm <= "0110000";
+				when x"4" => segm <= "0011001";
+				when x"5" => segm <= "0010010";
+				when x"6" => segm <= "0000010";
+				when x"7" => segm <= "1111000";
+				when x"8" => segm <= "0000000";
+				when x"9" => segm <= "0010000";
+				when x"A" => segm <= "0001000";
+				when x"B" => segm <= "0000011";
+				when x"C" => segm <= "1000110";
+				when x"D" => segm <= "0100001";
+				when x"E" => segm <= "0000110";
+				when others => segm <= "0001110";
+				end case;
+		end process;
+	
+	
+end Behavioral;
+
+
+--------------------------------------------------------
+------- file nut_bam ----------------------------
+-------------- gan voi cac nut bam  s5 va s6 khi an s5 hang chuc cua phut tang, an s6 hang don vi cua phut bao tang
+--------------
+-----------------------------------------------------
+
+library ieee;
+
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
+
+entity nut_bam is
+	port (
+			clk01s: in std_logic;
+			button: in std_logic_vector( 1 downto 0);
+			dembt: out std_logic_vector(7 downto 0)
+		);
+	end nut_bam;
+	
+architecture behavioral of nut_bam is
+	
+signal baothuc: std_logic_vector( 7 downto 0);
+	
+	begin
+	
+		process(clk01s)
+			begin
+			
+				if( rising_edge(clk01s) ) then
+					if( button = "10" ) then
+						baothuc(3 downto 0) <= baothuc(3 downto 0)  +1;
+					elsif( button = "01" ) then
+						baothuc(7 downto 4) <= baothuc(7 downto 4) + 1;
+					end if;
+				end if;
+				
+				if( baothuc(3 downto 0) = "1010" )then
+					baothuc(3 downto 0) <= "0000";
+					elsif( baothuc(7 downto 4 ) = "0110" ) then
+						baothuc( 7 downto 4) <= "0000";
+					end if;
+		end process;
+	
+	dembt <= baothuc;
+	
+end behavioral;
+--------------------------------------------------------
+------- file xu_li_so ----------------------------
+-------------- xu li so dung cho bo dem bao thuc giay khi hang chuc cua giay dem den dung so hang chuc cua bao thuc
+-------------- Tai luc day coi se keu trong 10 giay. Tuc la khi hang chuc cua giay thay doi
+--------------- coi bao thuc gan voi tan so la 12,2k hz
+-----------------------------------------------------
+
+library ieee;
+
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
+
+entity xu_li_so is
+	port(
+		clk: in std_logic;
+		clk01s : out std_logic;
+		beep: out std_logic;
+		dip : out std_logic_vector(7 downto 0);
+		dembt: in std_logic_vector(7 downto 0);
+		demx: out std_logic_vector(3 downto 0)
+	);
+	
+	end xu_li_so;
+architecture behavioral of xu_li_so is
+
+	signal demxung : std_logic_vector( 23 downto 0);
+	signal clk1s, clk10hz: std_logic;
+	
+	signal so: std_logic_vector( 23 downto 0);
+	signal baothuc: std_logic_vector( 7 downto 0);
+begin
+
+	process( clk)
+			variable i : integer := 0;
+			begin
+			-- dem den 5000000 lan, neu cat tai day thi la 10 hz
+				if( clk = '1' and clk'event) then
+					if demxung < x"4C4B40" then
+							demxung <= demxung + 1;
+						elsif( demxung = x"4C4B40" ) then -- dem den 0,01 s
+							demxung <= ( others =>'0');
+							i := i +1;
+						end if;
+					end if;
+					
+			--- cat xung 10 hz
+				if( i = 4 or i = 8 ) then
+					clk10hz <= '1';
+					else
+						clk10hz <= '0';
+				end if;
+			--- Cat xung 1 hz
+			
+				if( i = 9) then
+						clk1s <= '1';
+					elsif( i = 10) then
+					clk1s <= '0';
+						i:= 0;
+					else 
+						clk1s <= '0';
+						end if;
+						
+			end process;
+
+-------------------------------------
+------ hien thi cho led 7 doan
+	baothuc <= dembt;
+	clk01s <= clk10hz;
+-------------------------------------
+
+----------
+			
+	process(clk1s) 
+		begin
+			
+			if( rising_edge(clk1s) ) then 
+							if( so( 3 downto 0) < "1001" ) then
+									-- khi s1 be hon 10
+									so(3 downto 0) <= so(3 downto 0) +1;
+								elsif( so(3 downto 0) = "1001" and so( 7 downto 4) < "0101" )then
+									-- khi s1 den 10 va s2 be hon 10
+									so(3 downto 0) <= "0000";
+									so(7 downto 4) <= so(7 downto 4) +1;
+								elsif( so(7 downto 4) = "0101" and so(11 downto 8)  < "1001") then
+									-- khi s2 den 10 va m1 be hon 10
+									so(11 downto 8) <= so(11 downto 8) + 1;
+									so(7 downto 0) <= x"00";
+								elsif ( so(11 downto 8) = "1001" and so(15 downto 12) < "0101" ) then
+									-- khi m1 den 10 va m2 be hon 10
+										so(15 downto 12) <= so(15 downto 12) +1;
+										so(11 downto 0) <= x"000";
+									elsif( so(15 downto 12) = "0101" and so(19 downto 16) < "1001" ) then
+									-- khi m2 den 10 va h1 be hon 10
+										so(19 downto 16) <= so(19 downto 16) +1;
+										so(15 downto 0) <= x"0000";
+									elsif( so(19 downto 16) = "1001" and so(23 downto 20) <= "0001" ) then
+									-- khi h1 den 10 va h2 be hon 2
+										so(19 downto 0) <= x"00000";
+										so(23 downto 20) <= so(23 downto 20) + 1;
+									else
+										so(23 downto 0) <= x"000000";
+							end if;
+			end if;	
+			
+			
+			if( baothuc = so(15 downto 8)) then
+					beep <= demxung(13);
+				else		
+					beep <= '0';
+				end if;
+				
+		end process;
+		
+	
+	process( demxung) 
+			begin
+				
+				case demxung(16 downto 14) is
+					when "000" => --so mm1
+						dip <= "11111110";
+						demx <= so(3 downto 0);
+					when "001" =>
+						dip <= "11111101";
+						demx <= so(7 downto 4);
+					when "010" =>
+						dip <= "11111011";
+						demx <= so(11 downto 8);
+					when "011" =>
+						dip <= "11110111";
+						demx <= so(15 downto 12);
+					when "100" =>
+						dip <= "11101111";
+						demx <= so(19 downto 16);
+					when "101" =>
+						dip <= "11011111";
+						demx <= so(23 downto 20);
+					when "110" =>
+						dip <= "10111111";
+						demx <= baothuc(3 downto 0);
+					when others =>
+						dip <= "01111111";
+						demx <= baothuc(7 downto 4);
+				end case;
+			end process;
+		
+end behavioral;
+
+--------------------------------------------------------
+------- file lcd_modul ----------------------------
+--------------    Hien thi tren lcd, se duoc mo ta o file rieng
+--------------    
+-----------------------------------------------------
+
+library IEEE;
+
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_arith.all;
+use IEEE.std_logic_unsigned.all;
+
+Entity lcd_modul is
+port(
+		clk:in  std_logic;
+		lcd_e: out std_logic;
+		lcd_rs: out  std_logic;
+		lcd_rw: out std_logic;
+		--dem_so: out std_logic_vector(1 downto 0);
+		data: out std_logic_vector(7 downto 0);
+		line1: in std_logic_vector(127 downto 0);
+		line2: in std_logic_vector(127 downto 0)
+	);
+end lcd_modul;
+
+architecture Behavioral of lcd_modul is
+
+type intex is(reset, thietlap,Lapdong, dong1,dong2,gui);
+
+signal state: intex;
+signal pnt: natural range 0 to 16 := 15;
+constant freq : integer := 100;
+signal dong: std_logic := '1';
+--signal dem : std_logic_vector(1 downto 0);  -- dung dem de chuyen dong
+begin 
+	
+	lcd_rw <= '0';
+	process(clk)
+			variable cnt: integer :=0;
+		begin
+			
+			if( clk = '1' and clk'event) then
+				case state is
+					when reset =>
+						if( cnt < 50000 * freq ) then
+							cnt := cnt +1;
+							state <= reset;
+						else 
+							cnt := 0;
+							lcd_rs <= '0';
+							data <= "00110000"; -- 30
+							state <= thietlap;
+						end if;
+					when thietlap =>
+						cnt:= cnt + 1;
+						if( cnt < 10 * freq ) then
+							data <= x"3C"; -- bat hai dong va bat man hinh, co the thay la x"38"
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif( cnt < 60 * freq  ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						elsif ( cnt < 70 * freq ) then
+							data <= x"0C"; -- bat man hinh , tat con tro va nhay tro
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif ( cnt < 120 * freq ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						elsif( cnt < 130 * freq ) then
+							data <= x"01";  -- tang con tro
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif ( cnt <  2130 * freq ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						elsif ( cnt < 2140 * freq ) then
+							data <= x"06";  -- xoa man hinh
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif( cnt < 2200 * freq ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						else
+							cnt:= 0;
+							state <= Lapdong;
+						end if;
+					when Lapdong =>
+						pnt <= 16;
+						if( dong = '0') then  -- dong = '0' tuc la line1 cua lcd
+							data <= x"80"; -- dua con tro ve vi tri 1 dong 1
+							lcd_rs <= '0';
+							cnt:= 0;
+							state <= gui;
+						else 
+							data <= x"C0"; -- dong = '1' tuc la line2 cua lcd
+							lcd_rs <= '0';
+							cnt:= 0;
+							state <= gui;
+						end if;
+					when dong1 =>
+							dong <= '0';
+							data <= line1(pnt*8 + 7 downto pnt*8); -- co the dung 128 b de gui hoac de cho FIFO lam viec
+							lcd_rs <= '1';
+							cnt:= 0;
+							state <= gui;
+					when dong2 =>
+							dong <= '1';
+							data <= line2(pnt*8 + 7 downto pnt*8);
+							lcd_rs <= '1';
+							cnt:= 0;
+							state <= gui;
+					when gui =>
+						if( cnt <= 50 * freq ) then  -- tao tre 50 us
+							if( cnt < 100) then
+								lcd_e <= '0';
+								elsif cnt < 14 * freq  then
+									lcd_e <= '1';
+								elsif cnt < 27 * freq  then
+									lcd_e <= '0';
+								end if;
+							cnt:= cnt +1;
+							state <= gui;
+						else
+							if( dong = '0' ) then
+								cnt:= 0;
+								if( pnt = 0) then 
+									dong <= '1';
+									state <= Lapdong;
+								else
+									pnt <= pnt -1;
+									state <= dong1;
+								end if;
+							else
+								cnt:= 0;
+								if( pnt = 0 ) then
+									dong <= '0';
+									--dem <= dem +1; 	--dua tin hieu dem de chuyen sang hien thi khac
+									state <= Lapdong;
+								else
+									pnt <= pnt - 1;
+									state <= dong2;
+								end if;
+							end if;
+						end if;
+					end case;
+					
+		end if;
+		end process;
+	--dem_so <= dem;
+end behavioral;
+
+		
+
+--------------------------------------------------------
+------- file gan chan tren board -----------------------
+--------------------------------------------------------
+
+# PlanAhead Generated physical constraints 
+
+NET "clk" LOC = P55;
+NET "segment[0]" LOC = P119;
+NET "segment[1]" LOC = P116;
+NET "segment[2]" LOC = P118;
+NET "segment[3]" LOC = P124;
+NET "segment[4]" LOC = P121;
+NET "segment[5]" LOC = P117;
+NET "segment[6]" LOC = P115;
+
+
+NET "dip[0]" LOC = P100;
+NET "dip[1]" LOC = P99;
+net "dip[2]" LOC = P102;
+net "dip[3]" LOC = P101;
+
+
+net "dip[4]" LOC = P9;
+net "dip[5]" LOC = P10;
+net "dip[6]" LOC = P11;
+net "dip[7]" LOC = P12;
+
+
+#Dung cho cac nut bam
+net "button[0]" LOC = P61;
+net "button[1]" LOC = P62;
+# Dung coi
+NET "beep" 		 LOC = P14;
+
+
+#gan chan lcd
+
+NET "lcd_rw" LOC = P134;
+NET "lcd_e" LOC = P133;
+NET "lcd_rs" LOC = P131;
+
+NET "data[0]" LOC = P138;
+NET "data[1]" LOC = P137;
+NET "data[2]" LOC = P140;
+NET "data[3]" LOC = P139;
+
+NET "data[4]" LOC = P142;
+NET "data[5]" LOC = P141;
+NET "data[6]" LOC = P1;
+NET "data[7]" LOC = P143;

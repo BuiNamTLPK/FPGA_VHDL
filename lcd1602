@@ -1,0 +1,227 @@
+-- date: 17/04/2020
+-- designer: Bui Phuong Nam
+-- nhom: Bui Diep(lt) x Bui Nam
+
+-- use: on board xilinx, chip FPGA spartand 6 ,Device:  xc6slx9-3tqg144
+-- descrip: dung cho lcd chay theo trang thai FSM ( may trang thai), voi 4 vong lap
+-- ngoai ra con co 128 bit dau vao cho dong 1, 128 bit dau vao cho dong 2.
+-- duoc viet de co the quet lien tuc LCD16x2 chua den 1s. Do vay khi dung co the tao mot file gui du lieu
+-- dang ma ASCII den modul ( component modul_lcd)
+-- mine: Lay tu mot trang mang nao do toi da quen mat dia chi (:V).
+
+----------------------------------------------
+--------- main--------------------------------
+----------------------------------------------
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.std_logic_Arith.all;
+use IEEE.std_logic_unsigned.ALL;
+entity LCD1602 is
+	port (
+		clk:in  std_logic;
+		en: out std_logic;
+		rs: out  std_logic;
+		rw: out std_logic;
+		div: in std_logic_vector(3 downto 0);
+		button: in std_logic_vector(7 downto 0);
+		lcd_data: out std_logic_vector(7 downto 0)
+		);
+		
+end LCD1602;
+
+architecture Behavioral of LCD1602 is
+
+	COMPONENT modul_lcd IS
+	  PORT(
+		 clk:in  std_logic;
+		lcd_e: out std_logic;
+		lcd_rs: out  std_logic;
+		lcd_rw: out std_logic;
+		data: out std_logic_vector(7 downto 0);
+		line1: in std_logic_vector(127 downto 0);
+		line2: in std_logic_vector(127 downto 0)
+		 ); 
+	END COMPONENT;
+	
+	component data_lcd is
+		port( 
+			clk: in std_logic;
+			top_lineo: out std_logic_vector(127 downto 0);
+			bottom_lineo: out std_logic_vector(127 downto 0)
+			);
+	end component;
+	-- These lines can be configured to be input from anything. 
+	-- 8 bits per character
+
+begin
+
+	LCD: modul_lcd port map(
+		clk => clk,
+		lcd_e => en,
+		lcd_rs => rs,
+		lcd_rw => rw,
+		data => lcd_data,
+		line1 => top_line,
+		line2 => bottom_line 
+	);
+	line: data_lcd port map( clk => clk, top_lineo => top_line, bottom_lineo => bottom_line);
+	
+	
+end Behavioral;
+
+----------------------------------------------
+--------- modul_lcd                      ------------
+--------- dung de tao FSM den file chinh ------------
+---------------------------------------------
+library IEEE;
+
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_arith.all;
+use IEEE.std_logic_unsigned.all;
+
+Entity modul_lcd is
+port(
+		clk:in  std_logic;
+		lcd_e: out std_logic;
+		lcd_rs: out  std_logic;
+		lcd_rw: out std_logic;
+		--dem_so: out std_logic_vector(1 downto 0);
+		data: out std_logic_vector(7 downto 0);
+		line1: in std_logic_vector(127 downto 0);
+		line2: in std_logic_vector(127 downto 0)
+	);
+end modul_lcd;
+
+architecture Behavioral of modul_lcd is
+
+type intex is(reset, thietlap,Lapdong, dong1,dong2,gui);
+
+signal state: intex;
+signal pnt: natural range 0 to 16 := 15;
+constant freq : integer := 100;
+signal dong: std_logic := '1';
+--signal dem : std_logic_vector(1 downto 0);  -- dung dem de chuyen dong
+begin 
+	
+	lcd_rw <= '0';
+	process(clk)
+			variable cnt: integer :=0;
+		begin
+			
+			if( clk = '1' and clk'event) then
+				case state is
+					when reset =>
+						if( cnt < 50000 * freq ) then
+							cnt := cnt +1;
+							state <= reset;
+						else 
+							cnt := 0;
+							lcd_rs <= '0';
+							data <= "00110000"; -- 30
+							state <= thietlap;
+						end if;
+					when thietlap =>
+						cnt:= cnt + 1;
+						if( cnt < 10 * freq ) then
+							data <= x"3C"; -- bat hai dong va bat man hinh, co the thay la x"38"
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif( cnt < 60 * freq  ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						elsif ( cnt < 70 * freq ) then
+							data <= x"0C"; -- bat man hinh , tat con tro va nhay tro
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif ( cnt < 120 * freq ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						elsif( cnt < 130 * freq ) then
+							data <= x"01";  -- tang con tro
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif ( cnt <  2130 * freq ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						elsif ( cnt < 2140 * freq ) then
+							data <= x"06";  -- xoa man hinh
+							lcd_e <= '1';
+							state <= thietlap;
+						elsif( cnt < 2200 * freq ) then
+							data <= x"00";
+							lcd_e <= '0';
+							state <= thietlap;
+						else
+							cnt:= 0;
+							state <= Lapdong;
+						end if;
+					when Lapdong =>
+						pnt <= 16;
+						if( dong = '0') then  -- dong = '0' tuc la line1 cua lcd
+							data <= x"80"; -- dua con tro ve vi tri 1 dong 1
+							lcd_rs <= '0';
+							cnt:= 0;
+							state <= gui;
+						else 
+							data <= x"C0"; -- dong = '1' tuc la line2 cua lcd
+							lcd_rs <= '0';
+							cnt:= 0;
+							state <= gui;
+						end if;
+					when dong1 =>
+							dong <= '0';
+							data <= line1(pnt*8 + 7 downto pnt*8); -- co the dung 128 b de gui hoac de cho FIFO lam viec
+							lcd_rs <= '1';
+							cnt:= 0;
+							state <= gui;
+					when dong2 =>
+							dong <= '1';
+							data <= line2(pnt*8 + 7 downto pnt*8);
+							lcd_rs <= '1';
+							cnt:= 0;
+							state <= gui;
+					when gui =>
+						if( cnt <= 50 * freq ) then  -- tao tre 50 us
+							if( cnt < 100) then
+								lcd_e <= '0';
+								elsif cnt < 14 * freq  then
+									lcd_e <= '1';
+								elsif cnt < 27 * freq  then
+									lcd_e <= '0';
+								end if;
+							cnt:= cnt +1;
+							state <= gui;
+						else
+							if( dong = '0' ) then
+								cnt:= 0;
+								if( pnt = 0) then 
+									dong <= '1';
+									state <= Lapdong;
+								else
+									pnt <= pnt -1;
+									state <= dong1;
+								end if;
+							else
+								cnt:= 0;
+								if( pnt = 0 ) then
+									dong <= '0';
+									--dem <= dem +1; 	--dua tin hieu dem de chuyen sang hien thi khac
+									state <= Lapdong;
+								else
+									pnt <= pnt - 1;
+									state <= dong2;
+								end if;
+							end if;
+						end if;
+					end case;
+					
+		end if;
+		end process;
+	--dem_so <= dem;
+end behavioral;
+
+		
